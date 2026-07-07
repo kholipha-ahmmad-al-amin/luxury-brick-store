@@ -1,0 +1,78 @@
+# ভিত্তি — GitLab Pages deployment
+# Publishes the static single-page store to GitLab Pages, after running a
+# static audit of SEO/a11y/security essentials. Same checks as
+# .github/workflows/ci.yml, expressed in GitLab CI.
+
+stages:
+  - audit
+  - pages
+
+variables:
+  KEY_FILES: "index.html style.css script.js firebase-config.js robots.txt sitemap.xml"
+
+static-audit:
+  stage: audit
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache bash grep coreutils
+  script:
+    # 1. Required files exist
+    - |
+      for f in $KEY_FILES; do
+        test -f "$f" || { echo "❌ Missing file: $f"; exit 1; }
+        echo "✅ Found: $f ($(wc -c < "$f") bytes)"
+      done
+
+    # 2. JSON-LD scaffolded
+    - |
+      grep -q '@context' index.html \
+        && echo "✅ JSON-LD @context present" \
+        || { echo "❌ Missing JSON-LD @context in index.html"; exit 1; }
+
+    # 3. SEO meta basics
+    - |
+      grep -q 'og:title'       index.html && echo "✅ og:title"        || { echo "❌ og:title missing";        exit 1; }
+      grep -q 'og:image'       index.html && echo "✅ og:image"        || { echo "❌ og:image missing";        exit 1; }
+      grep -q 'twitter:card'   index.html && echo "✅ twitter:card"    || { echo "❌ twitter:card missing";    exit 1; }
+      grep -q 'theme-color'    index.html && echo "✅ theme-color"     || { echo "❌ theme-color missing";     exit 1; }
+      grep -q 'name="description"' index.html && echo "✅ description" || { echo "❌ description missing";     exit 1; }
+
+    # 4. No inline event handlers (CSP hygiene)
+    - |
+      if grep -E '(onclick|onload|onchange)=' index.html; then
+        echo "❌ Inline event handlers found in index.html (CSP violation)";
+        exit 1;
+      else
+        echo "✅ No inline handlers";
+      fi
+
+    # 5. Bangla brand voice intact
+    - grep -q "ভিত্তি" index.html \
+        && echo "✅ Brand voice preserved" \
+        || { echo "❌ Brand string 'ভিত্তি' missing"; exit 1; }
+    - grep -q "ভিত্তি" style.css \
+        && echo "✅ Brand voice in CSS" \
+        || { echo "❌ Brand string missing in style.css"; exit 1; }
+
+    # 6. Size budget (notice-only, not a failure)
+    - |
+      for f in $KEY_FILES; do
+        bytes=$(wc -c < "$f")
+        kb=$(awk -v b="$bytes" 'BEGIN{printf "%.1f", b/1024}')
+        echo "ℹ️  $f → $kb KB"
+      done
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH'
+
+pages:
+  stage: pages
+  image: alpine:latest
+  script:
+    - mkdir -p public
+    - cp index.html style.css script.js firebase-config.js robots.txt sitemap.xml public/
+  artifacts:
+    paths:
+      - public
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'

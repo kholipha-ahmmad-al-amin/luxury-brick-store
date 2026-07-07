@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://theta344710.gitlab.io/luxury-brick-store/sitemap.xml

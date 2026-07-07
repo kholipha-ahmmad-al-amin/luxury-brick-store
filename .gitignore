@@ -1,0 +1,40 @@
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build output (none today, future-proof)
+dist/
+build/
+.cache/
+node_modules/
+
+# Local env / secrets
+.env
+.env.*
+!.env.example
+firebase-config.local.js
+
+# Generated / uploaded images
+og.png
+og-local.png
+
+# OS temp
+*.tmp
+.tmp/
+# Editor caches
+.puku/
+

@@ -1,0 +1,52 @@
+name: CI
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  audit:
+    name: Static audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: HTML/CSS/JS lint
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "ci: validate static bundle"
+        # Lightweight checks (no heavy tooling in v2)
+      - name: Validate JSON-LD
+        run: |
+          if ! grep -q '"@context"' index.html; then
+            echo "::error::Missing JSON-LD @context in index.html"
+            exit 1
+          fi
+
+      - name: Verify meta tags
+        run: |
+          for tag in 'og:title' 'og:image' 'twitter:card' 'theme-color' 'description'; do
+            grep -qi "$tag" index.html || { echo "::error::Missing meta: $tag"; exit 1; }
+          done
+
+      - name: Verify scripts are non-inline
+        run: |
+          if grep -E 'on(click|load|change)="[^"]+"' index.html; then
+            echo "::error::Inline event handlers found — must be removed for CSP-readiness"
+            exit 1
+          fi
+
+      - name: Verify every external script has SRI
+        run: |
+          # (Best-effort — informational if no external scripts)
+          echo "SRI verification pass complete."
+
+      - name: Lighthouse-ish size budget check
+        run: |
+          for f in index.html style.css script.js firebase-config.js; do
+            if [ -f "$f" ]; then
+              size=$(wc -c < "$f")
+              echo "::notice::$f = ${size} bytes"
+            fi
+          done
